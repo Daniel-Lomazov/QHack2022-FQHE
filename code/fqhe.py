@@ -47,7 +47,8 @@ def verify_nij(n_blocks, fqhe_circuit):
 
     ax.set_xticks(np.arange(3 * n_blocks - 1))
     ax.set_xlabel(r'$i - j$')
-    ax.set_title(r'$\textit{2 point correlation function} \; \left|\left\langle n_{i}n_{j}\right\rangle -\left\langle n_{i}\right\rangle \left\langle n_{j}\right\rangle \right|$')
+    ax.set_title(
+        r'$\textit{2 point correlation function} \; \left|\left\langle n_{i}n_{j}\right\rangle -\left\langle n_{i}\right\rangle \left\langle n_{j}\right\rangle \right|$')
 
     cbar = ax.figure.colorbar(im, ax=ax)
     cbar.ax.set_ylabel(
@@ -73,7 +74,7 @@ def verify_ni(n_blocks, fqhe_circuit):
 
     n_t = 13
     tvals = np.round(np.linspace(0, 1.2, n_t), 3)
-    n = [fqhe_circuit(n_blocks, measure_ni, phi(t, n_blocks)) for t in tvals]
+    n = [fqhe_circuit(n_blocks, measure_ni(n_blocks), phi(t, n_blocks)) for t in tvals]
 
     fig, ax = plt.subplots()
     im = ax.imshow(n)
@@ -95,7 +96,10 @@ def verify_ni(n_blocks, fqhe_circuit):
 
 
 def measure_nij(n_blocks, i=0):
-    return [qml.probs(wires=[i, j]) for j in range(1, 3 * n_blocks)]
+    def ret():
+        return [qml.probs(wires=[i, j]) for j in range(1, 3 * n_blocks)]
+
+    return ret
     # coeffs = np.ones(4) / 4
     # obs = []
     # for j in range(1, 3 * n_blocks):
@@ -115,9 +119,20 @@ def measure_nij(n_blocks, i=0):
     # return obs
 
 
+def red_ij(red_wires):
+    def ret(n_blocks):
+        return qml.density_matrix(wires=red_wires)
+
+    return ret
+
+
 def measure_ni(n_blocks):
-    obs = [qml.Hermitian(0.5 * (qml.Identity(i).matrix + qml.PauliZ(i).matrix), wires=i) for i in range(3 * n_blocks)]
-    return [qml.expval(o) for o in obs]
+    def ret():
+        obs = [qml.Hermitian(0.5 * (qml.Identity(i).matrix + qml.PauliZ(i).matrix), wires=i) for i in
+               range(3 * n_blocks)]
+        return [qml.expval(o) for o in obs]
+
+    return ret
 
 
 def phi(t: float, n_blocks: int) -> list[float]:
@@ -140,7 +155,7 @@ def phi(t: float, n_blocks: int) -> list[float]:
     return phi_i
 
 
-def fqhe_circuit(n_blocks, obs, phi_i: Optional[list[float]]) -> list[float]:
+def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
     """
 
     Parameters
@@ -173,20 +188,29 @@ def fqhe_circuit(n_blocks, obs, phi_i: Optional[list[float]]) -> list[float]:
     # Stage 2 - part 2
     for i in range(n_blocks):
         qml.RZ(np.pi, wires=3 * i + 1)
-        qml.CNOT(wires=[3 * i + 2, 3 * (i + 1) ])
+        qml.CNOT(wires=[3 * i + 2, 3 * (i + 1)])
 
     # Stage 2 - part 3
     for i in range(n_blocks):
         qml.RZ(np.pi, wires=3 * i + 2)
         qml.CNOT(wires=[3 * i + 1, 3 * i])
 
-    return obs(n_blocks)
+    return obs()
 
 
 if __name__ == '__main__':
     n_blocks = 7
-    dev1 = qml.device("default.qubit", wires=3 * n_blocks + 2, shots=30)
-    fqhe = qml.QNode(fqhe_circuit, dev1)
+    n_wires = 3 * n_blocks + 2
+    # dev1 = qml.device("default.qubit", wires=n_wires, shots=60)
+    # fqhe = qml.QNode(fqhe_circuit, dev1)
 
-    verify_ni(n_blocks, fqhe)
+    my_bucket = "amazon-braket-amazon-braket-47ba137bf31d"  # the name of the bucket, keep the 'amazon-braket-' prefix and then include the bucket name
+    my_prefix = "penny"  # the name of the folder in the bucket
+    s3_folder = (my_bucket, my_prefix)
+
+    device_arn = "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
+    dev_remote = qml.device('braket.aws.qubit', device_arn=device_arn, wires=n_wires, shots=10)
+    fqhe_remote = qml.QNode(fqhe_circuit, dev_remote)
+
+    verify_ni(n_blocks, fqhe_remote)
     # verify_nij(n_blocks, fqhe)
