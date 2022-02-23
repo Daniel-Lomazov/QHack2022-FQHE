@@ -29,15 +29,13 @@ def verify_nij(n_blocks, fqhe_circuit):
         n0i = fqhe_circuit(n_blocks, measure_nij, t)
 
         twopt = []
-        for j in range(3*n_blocks -1):
-            ni = n0i[j][0]+n0i[j][1]
+        for j in range(3 * n_blocks - 1):
+            ni = n0i[j][0] + n0i[j][1]
             nj = n0i[j][2] + n0i[j][3]
 
             nij = n0i[-1]
-            twopt.append(nij - ni*nj)
-        # print(n0i)
+            twopt.append(nij - ni * nj)
         t_output.append(twopt)
-
 
     fig, ax = plt.subplots()
     im = ax.imshow(t_output)
@@ -49,7 +47,7 @@ def verify_nij(n_blocks, fqhe_circuit):
 
     ax.set_xticks(np.arange(3 * n_blocks - 1))
     ax.set_xlabel(r'$i - j$')
-    ax.set_title(r'$\textit{2 point correlation function}$')
+    ax.set_title(r'$\textit{2 point correlation function} \; \left|\left\langle n_{i}n_{j}\right\rangle -\left\langle n_{i}\right\rangle \left\langle n_{j}\right\rangle \right|$')
 
     cbar = ax.figure.colorbar(im, ax=ax)
     cbar.ax.set_ylabel(
@@ -75,7 +73,7 @@ def verify_ni(n_blocks, fqhe_circuit):
 
     n_t = 13
     tvals = np.round(np.linspace(0, 1.2, n_t), 3)
-    n = [fqhe_circuit(n_blocks, measure_ni, t) for t in tvals]
+    n = [fqhe_circuit(n_blocks, measure_ni, phi(t, n_blocks)) for t in tvals]
 
     fig, ax = plt.subplots()
     im = ax.imshow(n)
@@ -96,27 +94,8 @@ def verify_ni(n_blocks, fqhe_circuit):
     return
 
 
-def phi(n_blocks: int, t: float) -> list[float]:
-    """
-    This function computes the phases for the terms in the v=1/3 FQHE quantum state.
-
-    Parameters
-    ----------
-    t: Potential strength t=sqrt(V_30/V_10)
-    n_blocks: Number of 3-qubit blocks in the FQHE system
-
-    Returns
-    -------
-    Angles phi_i for the bozonized system, that ensure correct phases
-    """
-    phi_i = [np.arctan(-t)]
-    for i in range(n_blocks - 1):
-        phi_i.insert(0, np.arctan(-t * np.cos(phi_i[0])))
-    return phi_i
-
-
 def measure_nij(n_blocks, i=0):
-    return [qml.probs(wires=[i, j]) for j in range(1, 3*n_blocks)]
+    return [qml.probs(wires=[i, j]) for j in range(1, 3 * n_blocks)]
     # coeffs = np.ones(4) / 4
     # obs = []
     # for j in range(1, 3 * n_blocks):
@@ -141,7 +120,27 @@ def measure_ni(n_blocks):
     return [qml.expval(o) for o in obs]
 
 
-def variational_fqhe_circuit(n_blocks, t: float = 0.5, phi_i: Optional[list[float]] = None) -> qml.state():
+def phi(t: float, n_blocks: int) -> list[float]:
+    """
+    This function computes the phases for the terms in the v=1/3 FQHE quantum state.
+
+    Parameters
+    ----------
+    t: Potential strength t=sqrt(V_30/V_10)
+    n_blocks: Number of 3-qubit blocks in the FQHE system
+
+    Returns
+    -------
+    Angles phi_i for the bozonized system, that ensure correct phases
+    """
+    phi_i = [np.arctan(-t)]
+    for i in range(n_blocks - 1):
+        phi_i.insert(0, np.arctan(-t * np.cos(phi_i[0])))
+
+    return phi_i
+
+
+def fqhe_circuit(n_blocks, obs, phi_i: Optional[list[float]]) -> list[float]:
     """
 
     Parameters
@@ -153,13 +152,10 @@ def variational_fqhe_circuit(n_blocks, t: float = 0.5, phi_i: Optional[list[floa
     Returns
     -------
     The v=1/3 FQHE state
+
     """
     if phi_i is None:
-        phi_i = phi(n_blocks=n_blocks, t=t)
-
-    for i in range(n_blocks):
-        qml.PauliX(wires=(3 * i))  # Stage 0
-        qml.CRY(-2 * phi_i[i], wires=[3 * i + 1, 3 * (i + 1) + 1])  # Stage 1
+        raise ValueError("Must provide phi")
 
     # Stage 0
     for i in range(n_blocks + 1):
@@ -177,7 +173,7 @@ def variational_fqhe_circuit(n_blocks, t: float = 0.5, phi_i: Optional[list[floa
     # Stage 2 - part 2
     for i in range(n_blocks):
         qml.RZ(np.pi, wires=3 * i + 1)
-        qml.CNOT(wires=[3 * i + 2, 3 * (i + 1)])
+        qml.CNOT(wires=[3 * i + 2, 3 * (i + 1) ])
 
     # Stage 2 - part 3
     for i in range(n_blocks):
@@ -185,18 +181,12 @@ def variational_fqhe_circuit(n_blocks, t: float = 0.5, phi_i: Optional[list[floa
         qml.CNOT(wires=[3 * i + 1, 3 * i])
 
     return obs(n_blocks)
-    # return [qml.expval(o) for o in obs]
-    # return qml.expval((qml.Identity(0) + qml.PauliZ(0)) @ (qml.Identity(1) + qml.PauliZ(1))), qml.expval((qml.Identity(0) + qml.PauliZ(0)) @ (qml.Identity(2) + qml.PauliZ(2)))
-
-
-def fqhe_circuit(n_blocks, obs, t=0.5):
-    return variational_fqhe_circuit(n_blocks, phi(t, n_blocks), obs)
 
 
 if __name__ == '__main__':
-    n_blocks = 3
-    dev1 = qml.device("default.qubit", wires=3 * n_blocks + 1, shots=20)
+    n_blocks = 7
+    dev1 = qml.device("default.qubit", wires=3 * n_blocks + 2, shots=30)
     fqhe = qml.QNode(fqhe_circuit, dev1)
 
-    # verify_ni(n_blocks, fqhe)
-    verify_nij(n_blocks, fqhe)
+    verify_ni(n_blocks, fqhe)
+    # verify_nij(n_blocks, fqhe)
