@@ -3,6 +3,7 @@ from typing import Optional
 import pennylane as qml
 from pennylane import numpy as np
 from matplotlib import pyplot as plt
+from tqdm import tqdm
 
 plt.rcParams['text.usetex'] = True
 
@@ -208,8 +209,53 @@ def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
     return obs()
 
 
+def cross_entropy(blocks: int, t: float):
+    simulator = qml.device("default.qubit", wires=(3 * blocks + 2))
+
+    @qml.qnode(simulator)
+    def get_reduced_dm(block: int):
+        return fqhe_circuit(n_blocks=blocks, obs=red_ij([block - 1, block, block + 1]), phi_i=phi(t=t, n_blocks=blocks))
+
+    chi_max = None
+    for block_ in tqdm(range(1, 1 + blocks)):
+        rho_block = get_reduced_dm(block=block_)
+
+        block_rank = np.linalg.matrix_rank(rho_block)
+        if chi_max is None:
+            chi_max = block_rank
+        else:
+            if block_rank > chi_max:
+                chi_max = block_rank
+            else:
+                pass
+
+    return np.log2(chi_max)
+
+
+def cross_entropy_analysis(max_blocks, t_range):
+    fig, ax = plt.subplots()
+    ax.set_xlabel("blocks", rotation=0)
+    ax.set_ylabel(r'$E_{\chi}$')
+    ax.set_title(r'$E_{\chi} \textit{ as function of the number of blocks we try to simulate (using only 1)}$')
+
+    for tt in t_range:
+        block_vals = list(range(1, max_blocks + 1))
+        cross_entropy_vals = [cross_entropy(blocks=num_blocks, t=tt) for num_blocks in range(1, max_blocks + 1)]
+        ax.plot(block_vals, cross_entropy_vals, marker='o', label=r't={}'.format(tt))
+        ax.legend()
+
+    plt.show()
+
+    return
+
+
+
 if __name__ == '__main__':
+    # cross_entropy_analysis(max_blocks=5, t_range=np.linspace(0, 1.2, 10)[1:])
+
     n_blocks = 7
+    t = 0.5
+
     n_wires = 3 * n_blocks + 2
     dev1 = qml.device("default.qubit", wires=n_wires, shots=10)
     fqhe = qml.QNode(fqhe_circuit, dev1)
@@ -222,5 +268,5 @@ if __name__ == '__main__':
     # dev_remote = qml.device('braket.aws.qubit', device_arn=device_arn, wires=n_wires, shots=10)
     # fqhe_remote = qml.QNode(fqhe_circuit, dev_remote)
 
-    verify_ni(n_blocks, fqhe)
+    # verify_ni(n_blocks, fqhe)
     # verify_nij(n_blocks, fqhe)
