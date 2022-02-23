@@ -98,7 +98,6 @@ def verify_ni(n_blocks, fqhe_circuit):
 def measure_nij(n_blocks, i=0):
     def ret():
         return [qml.probs(wires=[i, j]) for j in range(1, 3 * n_blocks)]
-
     return ret
     # coeffs = np.ones(4) / 4
     # obs = []
@@ -119,10 +118,21 @@ def measure_nij(n_blocks, i=0):
     # return obs
 
 
-def red_ij(red_wires):
-    def ret(n_blocks):
-        return qml.density_matrix(wires=red_wires)
 
+def red_ij(red_wires):
+    """
+    Example for using red_ij on first block:
+        fqhe_circuit(5, red_ij([0,1,2]), phi_i)
+    Parameters
+    ----------
+    red_wires
+
+    Returns
+    -------
+
+    """
+    def ret():
+        return qml.density_matrix(wires=red_wires)
     return ret
 
 
@@ -201,16 +211,16 @@ def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
 if __name__ == '__main__':
     n_blocks = 7
     n_wires = 3 * n_blocks + 2
-    # dev1 = qml.device("default.qubit", wires=n_wires, shots=60)
-    # fqhe = qml.QNode(fqhe_circuit, dev1)
+    dev1 = qml.device("default.qubit", wires=n_wires, shots=10)
+    fqhe = qml.QNode(fqhe_circuit, dev1)
 
-    my_bucket = "amazon-braket-amazon-braket-47ba137bf31d"  # the name of the bucket, keep the 'amazon-braket-' prefix and then include the bucket name
-    my_prefix = "penny"  # the name of the folder in the bucket
-    s3_folder = (my_bucket, my_prefix)
+    # my_bucket = "amazon-braket-amazon-braket-47ba137bf31d"  # the name of the bucket, keep the 'amazon-braket-' prefix and then include the bucket name
+    # my_prefix = "penny"  # the name of the folder in the bucket
+    # s3_folder = (my_bucket, my_prefix)
+    #
+    # device_arn = "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
+    # dev_remote = qml.device('braket.aws.qubit', device_arn=device_arn, wires=n_wires, shots=10)
+    # fqhe_remote = qml.QNode(fqhe_circuit, dev_remote)
 
-    device_arn = "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
-    dev_remote = qml.device('braket.aws.qubit', device_arn=device_arn, wires=n_wires, shots=10)
-    fqhe_remote = qml.QNode(fqhe_circuit, dev_remote)
-
-    verify_ni(n_blocks, fqhe_remote)
+    verify_ni(n_blocks, fqhe)
     # verify_nij(n_blocks, fqhe)
