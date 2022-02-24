@@ -111,23 +111,28 @@ def verify_ni(n_blocks, fqhe_circuit, n_shots):
     typename = type(fqhe_circuit.device).__dict__['name']
     measure = measure_ni(n_blocks, typename=typename)
     n = [np.array(fqhe_circuit(n_blocks, measure, phi(t, n_blocks))) for t in tqdm(tvals)]
+
     if "Aws" in typename:
-        n = [2*o - 1 for o in n]
+        n = [2 * o - 1 for o in n]
+
+    n_new = []
+    for idx in range(len(n)):
+        n_new.append(n[-1 - idx])
 
     fig, ax = plt.subplots()
-    im = ax.imshow(n)
+    im = ax.imshow(n_new)
     plt.grid(visible=True)
 
     # Show all ticks and label them with the respective list entries
-    ax.set_yticks(np.arange(n_t), labels=tvals)
+    ax.set_yticks(np.arange(-0.5, -0.5 + n_t), labels=np.flip(tvals))
     ax.set_ylabel("t", rotation=0)
 
-    ax.set_xticks(np.arange(3 * n_blocks))
-    ax.set_xlabel(r'$\left\langle n_i \right\rangle$')
-    ax.set_title(r'$\left\langle n_i \right\rangle \; \textit{as function of t; \#shots=' + str(n_shots) + r'}$')
+    ax.set_xticks(np.arange(-0.5, -0.5 + 3 * (n_blocks + 1)), labels=range(3 * (n_blocks + 1)))
+    ax.set_xlabel(r'$\textit{\large{k}}$')
+    ax.set_title('N = {}; shots = {}'.format(3 * (n_blocks + 1), n_shots))
 
     cbar = ax.figure.colorbar(im, ax=ax)
-    cbar.ax.set_ylabel(r'$\left\langle n_i \right\rangle$', rotation=-0, va="bottom")
+    cbar.ax.set_ylabel(r'$\left\langle n_k \right\rangle$', rotation=90, va="bottom")
     plt.show()
 
     return
@@ -137,10 +142,9 @@ def measure_ni(n_blocks, typename=""):
 
     def ret():
         if "Aws" in typename:
-            obs = [qml.PauliZ(i) for i in range(3 * n_blocks + 2)]
+            obs = [qml.PauliZ(wires=i) for i in range(3 * (n_blocks + 1))]
         else:
-            obs = [qml.Hermitian(0.5 * (qml.Identity(i).matrix + qml.PauliZ(i).matrix), wires=i) for i in
-               range(3 * n_blocks + 2)]
+            obs = [qml.Hermitian(0.5 * (qml.Identity(wires=i).matrix - qml.PauliZ(wires=i).matrix), wires=i) for i in range(3 * (n_blocks + 1))]
         return [qml.expval(o) for o in obs]
 
     return ret
@@ -211,16 +215,16 @@ def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
 
     # Stage 0
     for i in range(n_blocks + 1):
-        qml.PauliX(3 * i)
+        qml.PauliX(wires=(3 * i))
 
-    qml.Barrier(range(3*n_blocks + 2))
+    qml.Barrier(wires=range(3 * (n_blocks + 1)))
 
     # Stage 1
     qml.RY(-2 * phi_i[0], wires=[1])
-    for i in range(n_blocks - 1):
-        qml.CRY(-2 * phi_i[i + 1], wires=[3 * i + 1, 3 * (i + 1) + 1])
+    for i in range(1, n_blocks):
+        qml.CRY(-2 * phi_i[i], wires=[3 * (i - 1) + 1, 3 * i + 1])
 
-    qml.Barrier(range(3*n_blocks + 2))
+    qml.Barrier(wires=range(3 * (n_blocks + 1)))
 
     # Stage 2 - part 1
     for i in range(n_blocks):
@@ -228,15 +232,16 @@ def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
 
     # Stage 2 - part 2
     for i in range(n_blocks):
-        qml.RZ(np.pi, wires=3 * i + 1)
-        qml.CNOT(wires=[3 * i + 2, 3 * (i + 1)])
+        qml.RZ(np.pi, wires=(3 * i + 1))
+        qml.CNOT(wires=[3 * i + 2, 3 * i + 3])
 
     # Stage 2 - part 3
     for i in range(n_blocks):
-        qml.RZ(np.pi, wires=3 * i + 2)
         qml.CNOT(wires=[3 * i + 1, 3 * i])
+        qml.RZ(np.pi, wires=(3 * i + 2))
 
-    qml.Barrier(range(3*n_blocks + 2))
+    qml.Barrier(wires=range(3 * (n_blocks + 1)))
+
     return obs()
     # return qml.expval(qml.PauliZ(0))
 
@@ -265,22 +270,22 @@ def get_circuit():
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', type=str, default="local")
     parser.add_argument('--name', type=str, default="")
-    parser.add_argument('--blocks', type=int, default=3)
-    parser.add_argument('--shots', type=int, default=10)
+    parser.add_argument('--blocks', type=int, default=6)
+    parser.add_argument('--shots', type=int, default=1000)
     args = parser.parse_args()
     n_blocks = args.blocks
     n_shots = args.shots
     dev_name = args.device
     name = args.name
 
-    print("Runningg FQHE v=1/3 simulation with device-{} on {} blocks for {} shots".format(dev_name + "-" + args.name,
-                                                                                           n_blocks, n_shots))
+    print("Running FQHE v=1/3 simulation with device-{} on {} blocks for {} shots".format(dev_name + "-" + args.name,
+                                                                                          n_blocks, n_shots))
 
     return dev_name, n_blocks, n_shots, name
 
 
 def cross_entropy(blocks: int, t: float):
-    simulator = qml.device("default.qubit", wires=(3 * blocks + 2))
+    simulator = qml.device("default.qubit", wires=(3 * blocks + 3))
 
     @qml.qnode(simulator)
     def get_reduced_dm(block: int):
@@ -321,16 +326,12 @@ def cross_entropy_analysis(max_blocks, t_range):
 
 if __name__ == '__main__':
     # cross_entropy_analysis(max_blocks=5, t_range=np.linspace(0, 1.2, 10)[1:])
-
-    n_blocks = 7
-    t = 0.5
-
     """
     Example: 
         In command line write "python fqhe.py -blocks 4 --shots 5
     """
     dev_name, n_blocks, n_shots, name = get_circuit()
-    n_wires = 3 * n_blocks + 2
+    n_wires = 3 * (n_blocks + 1)
 
     try:
         run_option = {"local": local_device, "aws": braket_device}
