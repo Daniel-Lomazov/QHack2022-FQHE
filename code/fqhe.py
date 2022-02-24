@@ -192,7 +192,7 @@ def phi(t: float, n_blocks: int) -> list[float]:
     phi_i = [np.arctan(-t)]
     for i in range(n_blocks - 1):
         phi_i.insert(0, np.arctan(-t * np.cos(phi_i[0])))
-
+        # phi_i.append(np.arctan(-t * np.cos(phi_i[0])))
     return phi_i
 
 
