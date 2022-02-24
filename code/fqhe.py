@@ -1,5 +1,6 @@
 from typing import Optional
-
+import argparse
+from tqdm import tqdm  # For daniel: pip install tqdm
 import pennylane as qml
 from pennylane import numpy as np
 from matplotlib import pyplot as plt
@@ -7,25 +8,13 @@ from matplotlib import pyplot as plt
 plt.rcParams['text.usetex'] = True
 
 
-def verify_nij(n_blocks, fqhe_circuit):
-    """
-    Verifies eq. 16 from Rahmani et al.
-
-    Parameters
-    ----------
-    n_blocks
-
-    Returns
-    -------
-
-    """
+def verify_nij_data(n_blocks, fqhe_circuit):
     n_t = 13
     tvals = np.round(np.linspace(0, 1.2, n_t), 3)
 
     t_output = []
 
     for t in tvals:
-        # ni = fqhe_circuit(n_blocks, measure_ni(n_blocks), t)
         n0i = fqhe_circuit(n_blocks, measure_nij, t)
 
         twopt = []
@@ -37,18 +26,37 @@ def verify_nij(n_blocks, fqhe_circuit):
             twopt.append(nij - ni * nj)
         t_output.append(twopt)
 
+    return tvals, t_output
+
+
+def verify_nij(n_blocks, fqhe_circuit, n_shots):
+    """
+    Verifies eq. 16 from Rahmani et al.
+
+    Parameters
+    ----------
+    n_blocks
+
+    Returns
+    -------
+
+    """
+    tvals, t_output = verify_nij_data(n_blocks, fqhe_circuit, n_shots)
+
     fig, ax = plt.subplots()
     im = ax.imshow(t_output)
     plt.grid(visible=True)
 
     # Show all ticks and label them with the respective list entries
-    ax.set_yticks(np.arange(n_t), labels=tvals)
+    ax.set_yticks(np.arange(len(tvals)), labels=tvals)
     ax.set_ylabel("t", rotation=0)
 
     ax.set_xticks(np.arange(3 * n_blocks - 1))
     ax.set_xlabel(r'$i - j$')
     ax.set_title(
-        r'$\textit{2 point correlation function} \; \left|\left\langle n_{i}n_{j}\right\rangle -\left\langle n_{i}\right\rangle \left\langle n_{j}\right\rangle \right|$')
+        r'$\textit{2 point correlation function} \;'
+        r' \left|\left\langle n_{i}n_{j}\right\rangle -\left\langle n_{i}\right\rangle \left\langle n_{j}\right\rangle \right|; \#shots=' + str(
+            n_shots) + r'}$')
 
     cbar = ax.figure.colorbar(im, ax=ax)
     cbar.ax.set_ylabel(
@@ -59,7 +67,7 @@ def verify_nij(n_blocks, fqhe_circuit):
     return
 
 
-def verify_ni(n_blocks, fqhe_circuit):
+def verify_ni(n_blocks, fqhe_circuit, n_shots):
     """
     Verifies eq. 15 from Rahmani et al.
 
@@ -72,9 +80,10 @@ def verify_ni(n_blocks, fqhe_circuit):
 
     """
 
-    n_t = 13
+    n_t = 12
     tvals = np.round(np.linspace(0, 1.2, n_t), 3)
-    n = [fqhe_circuit(n_blocks, measure_ni(n_blocks), phi(t, n_blocks)) for t in tvals]
+    measure = aws_measure_ni(n_blocks)
+    n = [fqhe_circuit(n_blocks, measure, phi(t, n_blocks)) for t in tqdm(tvals)]
 
     fig, ax = plt.subplots()
     im = ax.imshow(n)
@@ -86,7 +95,7 @@ def verify_ni(n_blocks, fqhe_circuit):
 
     ax.set_xticks(np.arange(3 * n_blocks))
     ax.set_xlabel(r'$\left\langle n_i \right\rangle$')
-    ax.set_title(r'$\left\langle n_i \right\rangle \; \textit{as function of t}$')
+    ax.set_title(r'$\left\langle n_i \right\rangle \; \textit{as function of t; \#shots=' + str(n_shots) + r'}$')
 
     cbar = ax.figure.colorbar(im, ax=ax)
     cbar.ax.set_ylabel(r'$\left\langle n_i \right\rangle$', rotation=-0, va="bottom")
@@ -98,6 +107,7 @@ def verify_ni(n_blocks, fqhe_circuit):
 def measure_nij(n_blocks, i=0):
     def ret():
         return [qml.probs(wires=[i, j]) for j in range(1, 3 * n_blocks)]
+
     return ret
     # coeffs = np.ones(4) / 4
     # obs = []
@@ -118,7 +128,6 @@ def measure_nij(n_blocks, i=0):
     # return obs
 
 
-
 def red_ij(red_wires):
     """
     Example for using red_ij on first block:
@@ -131,14 +140,32 @@ def red_ij(red_wires):
     -------
 
     """
+
     def ret():
         return qml.density_matrix(wires=red_wires)
+
     return ret
 
 
 def measure_ni(n_blocks):
     def ret():
         obs = [qml.Hermitian(0.5 * (qml.Identity(i).matrix + qml.PauliZ(i).matrix), wires=i) for i in
+               range(3 * n_blocks)]
+        return [qml.expval(o) for o in obs]
+
+    return ret
+
+
+def measure_string_ij(n_block, i, j):
+    def ret():
+        None
+
+    return None
+
+
+def aws_measure_ni(n_blocks):
+    def ret():
+        obs = [qml.Hermitian(0.5 * ([[1, 0], [0, 1]] + qml.PauliZ(i).matrix), wires=i) for i in
                range(3 * n_blocks)]
         return [qml.expval(o) for o in obs]
 
@@ -208,19 +235,52 @@ def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
     return obs()
 
 
+def local_device(n_wires, n_shots):
+    dev = qml.device("default.qubit", wires=n_wires, shots=n_shots)
+    return dev
+
+
+def braket_device(n_wires, n_shots):
+    my_bucket = "amazon-braket-amazon-braket-47ba137bf31d"
+    my_prefix = "penny"
+    s3_folder = (my_bucket, my_prefix)
+
+    sv1_arn = "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
+    # aspen11_arn = "arn:aws:braket:::device/qpu/rigetti/Aspen-11"
+    dev_remote = qml.device('braket.aws.qubit', device_arn=sv1_arn, wires=n_wires, shots=n_shots)
+    return dev_remote
+
+
+def get_circuit():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--device', type=str, default="local")
+    parser.add_argument('--blocks', type=int, default=3)
+    parser.add_argument('--shots', type=int, default=10)
+    args = parser.parse_args()
+    n_blocks = args.blocks
+    n_shots = args.shots
+    dev_name = args.device
+
+    print("Runningg FQHE v=1/3 simulation with device-{} on {} blocks for {} shots".format(dev_name, n_blocks, n_shots))
+
+    return dev_name, n_blocks, n_shots
+
+
 if __name__ == '__main__':
-    n_blocks = 7
+    """
+    Example: 
+        In command line write "python fqhe.py -blocks 4 --shots 5
+    """
+    dev_name, n_blocks, n_shots = get_circuit()
     n_wires = 3 * n_blocks + 2
-    dev1 = qml.device("default.qubit", wires=n_wires, shots=10)
-    fqhe = qml.QNode(fqhe_circuit, dev1)
 
-    # my_bucket = "amazon-braket-amazon-braket-47ba137bf31d"  # the name of the bucket, keep the 'amazon-braket-' prefix and then include the bucket name
-    # my_prefix = "penny"  # the name of the folder in the bucket
-    # s3_folder = (my_bucket, my_prefix)
-    #
-    # device_arn = "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
-    # dev_remote = qml.device('braket.aws.qubit', device_arn=device_arn, wires=n_wires, shots=10)
-    # fqhe_remote = qml.QNode(fqhe_circuit, dev_remote)
+    try:
+        run_option = {"local": local_device, "aws": braket_device}
+        dev = run_option[dev_name](n_wires, n_shots)
+    except KeyError or IndexError:
+        dev = local_device(n_wires, n_shots)
 
-    verify_ni(n_blocks, fqhe)
-    # verify_nij(n_blocks, fqhe)
+    fqhe = qml.QNode(fqhe_circuit, dev)
+
+    verify_ni(n_blocks, fqhe, n_shots=n_shots)
+    # verify_nij(n_blocks, fqhe, n_shots)
