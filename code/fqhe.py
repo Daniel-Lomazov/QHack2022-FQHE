@@ -9,6 +9,30 @@ from tqdm import tqdm
 plt.rcParams['text.usetex'] = True
 
 
+def measure_nij(n_blocks, i=0):
+    def ret():
+        return [qml.probs(wires=[i, j]) for j in range(1, 3 * n_blocks)]
+
+    return ret
+    # coeffs = np.ones(4) / 4
+    # obs = []
+    # for j in range(1, 3 * n_blocks):
+    #     obs = [qml.Identity(i) @ qml.Identity(j), qml.PauliZ(i) @ qml.Identity(j), qml.PauliZ(j) @ qml.Identity(i),
+    #            qml.PauliZ(i) @ qml.PauliZ(j)]
+    #     Hj = qml.Hamiltonian(coeffs, obs)
+    #     obs.append((Hj))
+
+    # obs = [qml.PauliZ(j) for j in range(3 * n_blocks)]
+    # obs.extend([qml.PauliZ(i) @ qml.PauliZ(j) for j in range(1, 3 * n_blocks)])
+    # return obs
+
+    # opi = qml.Hermitian(0.25 * (qml.Identity(i).matrix + qml.PauliZ(i).matrix), wires=0).matrix
+    # obs = [qml.Hermitian(np.kron(opi, (qml.Identity(j).matrix + qml.PauliZ(j).matrix)), wires=[i, j]) for j in
+    #        range(1, 3 * n_blocks)]
+    #
+    # return obs
+
+
 def verify_nij_data(n_blocks, fqhe_circuit):
     n_t = 13
     tvals = np.round(np.linspace(0, 1.2, n_t), 3)
@@ -84,8 +108,11 @@ def verify_ni(n_blocks, fqhe_circuit, n_shots):
 
     n_t = 12
     tvals = np.round(np.linspace(0, 1.2, n_t), 3)
-    measure = aws_measure_ni(n_blocks)
-    n = [fqhe_circuit(n_blocks, measure, phi(t, n_blocks)) for t in tqdm(tvals)]
+    typename = type(fqhe_circuit.device).__dict__['name']
+    measure = measure_ni(n_blocks, typename=typename)
+    n = [np.array(fqhe_circuit(n_blocks, measure, phi(t, n_blocks))) for t in tqdm(tvals)]
+    if "Aws" in typename:
+        n = [2*o - 1 for o in n]
 
     fig, ax = plt.subplots()
     im = ax.imshow(n)
@@ -106,29 +133,24 @@ def verify_ni(n_blocks, fqhe_circuit, n_shots):
     return
 
 
-def measure_nij(n_blocks, i=0):
+def measure_ni(n_blocks, typename=""):
+
     def ret():
-        return [qml.probs(wires=[i, j]) for j in range(1, 3 * n_blocks)]
+        if "Aws" in typename:
+            obs = [qml.PauliZ(i) for i in range(3 * n_blocks + 2)]
+        else:
+            obs = [qml.Hermitian(0.5 * (qml.Identity(i).matrix + qml.PauliZ(i).matrix), wires=i) for i in
+               range(3 * n_blocks + 2)]
+        return [qml.expval(o) for o in obs]
 
     return ret
-    # coeffs = np.ones(4) / 4
-    # obs = []
-    # for j in range(1, 3 * n_blocks):
-    #     obs = [qml.Identity(i) @ qml.Identity(j), qml.PauliZ(i) @ qml.Identity(j), qml.PauliZ(j) @ qml.Identity(i),
-    #            qml.PauliZ(i) @ qml.PauliZ(j)]
-    #     Hj = qml.Hamiltonian(coeffs, obs)
-    #     obs.append((Hj))
 
-    # obs = [qml.PauliZ(j) for j in range(3 * n_blocks)]
-    # obs.extend([qml.PauliZ(i) @ qml.PauliZ(j) for j in range(1, 3 * n_blocks)])
-    # return obs
 
-    # opi = qml.Hermitian(0.25 * (qml.Identity(i).matrix + qml.PauliZ(i).matrix), wires=0).matrix
-    # obs = [qml.Hermitian(np.kron(opi, (qml.Identity(j).matrix + qml.PauliZ(j).matrix)), wires=[i, j]) for j in
-    #        range(1, 3 * n_blocks)]
-    #
-    # return obs
+def measure_string_ij(n_block, i, j):
+    def ret():
+        None
 
+    return None
 
 
 def red_ij(red_wires):
@@ -146,31 +168,6 @@ def red_ij(red_wires):
 
     def ret():
         return qml.density_matrix(wires=red_wires)
-
-    return ret
-
-
-def measure_ni(n_blocks):
-    def ret():
-        obs = [qml.Hermitian(0.5 * (qml.Identity(i).matrix + qml.PauliZ(i).matrix), wires=i) for i in
-               range(3 * n_blocks)]
-        return [qml.expval(o) for o in obs]
-
-    return ret
-
-
-def measure_string_ij(n_block, i, j):
-    def ret():
-        None
-
-    return None
-
-
-def aws_measure_ni(n_blocks):
-    def ret():
-        obs = [qml.Hermitian(0.5 * ([[1, 0], [0, 1]] + qml.PauliZ(i).matrix), wires=i) for i in
-               range(3 * n_blocks)]
-        return [qml.expval(o) for o in obs]
 
     return ret
 
@@ -206,7 +203,7 @@ def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
 
     Returns
     -------
-    The v=1/3 FQHE state
+    A measurement of v=1/3 FQHE state according to the observables specified by obs
 
     """
     if phi_i is None:
@@ -216,10 +213,14 @@ def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
     for i in range(n_blocks + 1):
         qml.PauliX(3 * i)
 
+    qml.Barrier(range(3*n_blocks + 2))
+
     # Stage 1
     qml.RY(-2 * phi_i[0], wires=[1])
     for i in range(n_blocks - 1):
         qml.CRY(-2 * phi_i[i + 1], wires=[3 * i + 1, 3 * (i + 1) + 1])
+
+    qml.Barrier(range(3*n_blocks + 2))
 
     # Stage 2 - part 1
     for i in range(n_blocks):
@@ -235,38 +236,47 @@ def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
         qml.RZ(np.pi, wires=3 * i + 2)
         qml.CNOT(wires=[3 * i + 1, 3 * i])
 
+    qml.Barrier(range(3*n_blocks + 2))
     return obs()
+    # return qml.expval(qml.PauliZ(0))
 
 
-def local_device(n_wires, n_shots):
+def local_device(n_wires, n_shots, name=""):
     dev = qml.device("default.qubit", wires=n_wires, shots=n_shots)
     return dev
 
 
-def braket_device(n_wires, n_shots):
+def braket_device(n_wires, n_shots, name):
     my_bucket = "amazon-braket-amazon-braket-47ba137bf31d"
     my_prefix = "penny"
     s3_folder = (my_bucket, my_prefix)
 
-    sv1_arn = "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
-    # aspen11_arn = "arn:aws:braket:::device/qpu/rigetti/Aspen-11"
-    dev_remote = qml.device('braket.aws.qubit', device_arn=sv1_arn, wires=n_wires, shots=n_shots)
+    sv1 = "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
+    aspn11 = "arn:aws:braket:::device/qpu/rigetti/Aspen-11"
+
+    dev_arn = {"sv1": sv1, 'aspen11': aspn11}
+
+    dev_remote = qml.device('braket.aws.qubit', device_arn=dev_arn[name], wires=n_wires, shots=n_shots)
+    print(dev_remote._device.name)
     return dev_remote
 
 
 def get_circuit():
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', type=str, default="local")
+    parser.add_argument('--name', type=str, default="")
     parser.add_argument('--blocks', type=int, default=3)
     parser.add_argument('--shots', type=int, default=10)
     args = parser.parse_args()
     n_blocks = args.blocks
     n_shots = args.shots
     dev_name = args.device
+    name = args.name
 
-    print("Runningg FQHE v=1/3 simulation with device-{} on {} blocks for {} shots".format(dev_name, n_blocks, n_shots))
+    print("Runningg FQHE v=1/3 simulation with device-{} on {} blocks for {} shots".format(dev_name + "-" + args.name,
+                                                                                           n_blocks, n_shots))
 
-    return dev_name, n_blocks, n_shots
+    return dev_name, n_blocks, n_shots, name
 
 
 def cross_entropy(blocks: int, t: float):
@@ -309,7 +319,6 @@ def cross_entropy_analysis(max_blocks, t_range):
     return
 
 
-
 if __name__ == '__main__':
     # cross_entropy_analysis(max_blocks=5, t_range=np.linspace(0, 1.2, 10)[1:])
 
@@ -320,16 +329,22 @@ if __name__ == '__main__':
     Example: 
         In command line write "python fqhe.py -blocks 4 --shots 5
     """
-    dev_name, n_blocks, n_shots = get_circuit()
+    dev_name, n_blocks, n_shots, name = get_circuit()
     n_wires = 3 * n_blocks + 2
 
     try:
         run_option = {"local": local_device, "aws": braket_device}
-        dev = run_option[dev_name](n_wires, n_shots)
+        dev = run_option[dev_name](n_wires, n_shots, name)
     except KeyError or IndexError:
         dev = local_device(n_wires, n_shots)
 
     fqhe = qml.QNode(fqhe_circuit, dev)
 
+    # measure = measure_ni(n_blocks)
+    # phi_i = phi(0.5, n_blocks)
+    # print(qml.draw(fqhe)(n_blocks, measure, phi_i))
+    # fig, ax = qml.draw_mpl(fqhe, decimals=2)(n_blocks, measure, phi_i)
+    # plt.show()
+
     verify_ni(n_blocks, fqhe, n_shots=n_shots)
-    # verify_nij(n_blocks, fqhe, n_shots)
+    # # verify_nij(n_blocks, fqhe, n_shots)
