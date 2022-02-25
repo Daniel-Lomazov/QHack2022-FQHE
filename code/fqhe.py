@@ -90,7 +90,6 @@ def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
 
     # Stage 2 - part 3
     for i in range(n_blocks):
-        qml.RZ(np.pi, wires=3 * i + 2)
         qml.CNOT(wires=[3 * i + 1, 3 * i])
         qml.RZ(np.pi, wires=(3 * i + 2))
 
@@ -128,9 +127,9 @@ def braket_device(n_wires, n_shots, name):
 def get_circuit():
     parser = argparse.ArgumentParser()
     parser.add_argument('--device', type=str, default="local")
-    parser.add_argument('--name', type=str, default="")
-    parser.add_argument('--blocks', type=int, default=3)
-    parser.add_argument('--shots', type=int, default=10)
+    parser.add_argument('--name', type=str, default="aspen11")
+    parser.add_argument('--blocks', type=int, default=7)
+    parser.add_argument('--shots', type=int, default=1000)
     args = parser.parse_args()
     n_blocks = args.blocks
     n_shots = args.shots
@@ -192,16 +191,22 @@ if __name__ == '__main__':
     dev_name, n_blocks, n_shots, name = get_circuit()
     n_wires = 3 * (n_blocks + 1)
 
-    try:
-        run_option = {"local": local_device, "aws": braket_device}
-        dev = run_option[dev_name](n_wires, n_shots, name)
-    except KeyError or IndexError:
-        dev = local_device(n_wires, n_shots)
+    # try:
+    #     print(dev_name)
+    #     run_option = {"local": local_device, "aws": braket_device}
+    #     dev = run_option[dev_name](n_wires, n_shots, name)
+    #     print(dev)
+    # except KeyError or IndexError:
+    #     dev = local_device(n_wires, n_shots)
 
+    dev = braket_device(n_wires, n_shots, name)
     fqhe = qml.QNode(fqhe_circuit, dev)
-    verify_string(n_blocks, fqhe, n_shots=n_shots)
-    # measure = measure_ni(n_blocks)
+    # verify_string(n_blocks, fqhe, n_shots=n_shots)
+    # measure = measure_ni_2(n_blocks)
     # phi_i = phi(0.5, n_blocks)
     # print(qml.draw(fqhe)(n_blocks, measure, phi_i))
     # fig, ax = qml.draw_mpl(fqhe, decimals=2)(n_blocks, measure, phi_i)
     # plt.show()
+
+    verify_nij_2(n_blocks, fqhe, n_shots)
+    # verify_ni(n_blocks, fqhe, n_shots)

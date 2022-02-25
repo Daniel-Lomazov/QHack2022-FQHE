@@ -78,6 +78,41 @@
 \begin_layout Standard
 \begin_inset Formula 
 \[
+\hat{n}_{i}\equiv\frac{\mathbb{I}_{i}-Z_{i}}{2}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\Downarrow
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\begin{eqnarray*}
+\left\langle \hat{n}_{i}\right\rangle _{\rho} & = & \text{Tr}\left(\rho\hat{n}_{i}\right)\\
+ & = & \frac{1}{2}\text{Tr}\left(\rho\mathbb{I}_{i}-\rho Z_{i}\right)\\
+ & = & \frac{1}{2}\left(\text{Tr}\left(\rho\mathbb{I}_{i}\right)-\text{Tr}\left(\rho Z_{i}\right)\right)\\
+ & = & \frac{1}{2}\left(1-\text{Tr}\left(\rho Z_{i}\right)\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+================================================================================
+===
+\begin_inset Formula 
+\[
 \hat{n}_{i}\hat{n}_{j}\equiv\left(\frac{\mathbb{I}_{i}-Z_{i}}{2}\right)\otimes\left(\frac{\mathbb{I}_{j}-Z_{j}}{2}\right)=\frac{1}{4}\left(\mathbb{I}_{i}-Z_{i}\right)\otimes\left(\mathbb{I}_{j}-Z_{j}\right)=\frac{1}{4}\left(\mathbb{I}_{i}\otimes\mathbb{I}_{j}-\mathbb{I}_{i}\otimes Z_{j}-Z_{i}\otimes\mathbb{I}_{j}+Z_{i}\otimes Z_{j}\right)
 \]
 
@@ -102,38 +137,22 @@
 
 \end_inset
 
-So if we measure 
-\begin_inset Formula $Z_{i}\otimes Z_{j}$
-\end_inset
 
- and get 
-\begin_inset Formula $\left\{ c_{00},c_{01},c_{10},c_{11}\right\} $
-\end_inset
+\end_layout
 
-, then:
-\begin_inset Formula 
-\[
-\text{Tr}\left(\rho Z_{i}\right)=p_{\text{Meas. 0}}^{\left(i\right)}\cdot\left(+1\right)+p_{\text{Meas. 1}}^{\left(i\right)}\cdot\left(-1\right)=p_{\text{Meas. 0}}^{\left(i\right)}-p_{\text{Meas. 1}}^{\left(i\right)}=p_{\text{Meas. 0}}^{\left(i\right)}-\left(1-p_{\text{Meas. 0}}^{\left(i\right)}\right)=2p_{\text{Meas. 0}}^{\left(i\right)}-1
-\]
+\begin_layout Standard
+================================================================================
+===
+\end_layout
 
-\end_inset
-
-
+\begin_layout Standard
 \begin_inset Formula 
 \begin{eqnarray*}
-\text{Tr}\left(\rho Z_{i}\otimes Z_{j}\right) & = & p_{\text{Meas. 00}}^{\left(i,j\right)}\cdot\left(+1\right)\cdot\left(+1\right)+p_{\text{Meas. 01}}^{\left(i,j\right)}\cdot\left(+1\right)\cdot\left(-1\right)+p_{\text{Meas. 10}}^{\left(i,j\right)}\cdot\left(-1\right)\cdot\left(+1\right)+p_{\text{Meas. 11}}^{\left(i,j\right)}\cdot\left(-1\right)\cdot\left(-1\right)\\
- & = & p_{\text{Meas. 00}}^{\left(i,j\right)}-p_{\text{Meas. 01}}^{\left(i,j\right)}-p_{\text{Meas. 10}}^{\left(i,j\right)}+p_{\text{Meas. 11}}^{\left(i,j\right)}\\
- & = & p_{\text{Meas. 00}}^{\left(i,j\right)}-p_{\text{Meas. 01}}^{\left(i,j\right)}-p_{\text{Meas. 10}}^{\left(i,j\right)}+\left(1-p_{\text{Meas. 00}}^{\left(i,j\right)}-p_{\text{Meas. 01}}^{\left(i,j\right)}-p_{\text{Meas. 10}}^{\left(i,j\right)}\right)\\
- & = & 1-2p_{\text{Meas. 01}}^{\left(i,j\right)}-2p_{\text{Meas. 10}}^{\left(i,j\right)}
+\left|\left\langle \hat{n}_{i}\hat{n}_{j}\right\rangle _{\rho}-\left\langle \hat{n}_{i}\right\rangle _{\rho}\cdot\left\langle \hat{n}_{i}\right\rangle _{\rho}\right| & = & \left|\frac{1}{4}\left(1-\text{Tr}\left(\rho Z_{i}\right)-\text{Tr}\left(\rho Z_{j}\right)+\text{Tr}\left(\rho Z_{i}\otimes Z_{j}\right)\right)-\frac{1}{2}\left(1-\text{Tr}\left(\rho Z_{i}\right)\right)\cdot\frac{1}{2}\left(1-\text{Tr}\left(\rho Z_{j}\right)\right)\right|\\
+ & = & \frac{1}{4}\left|\left(1-\text{Tr}\left(\rho Z_{i}\right)-\text{Tr}\left(\rho Z_{j}\right)+\text{Tr}\left(\rho Z_{i}\otimes Z_{j}\right)\right)-\left(1-\text{Tr}\left(\rho Z_{i}\right)-\text{Tr}\left(\rho Z_{j}\right)+\text{Tr}\left(\rho Z_{i}\right)\text{Tr}\left(\rho Z_{j}\right)\right)\right|\\
+ & = & \frac{1}{4}\left|\left(\cancel{1-\text{Tr}\left(\rho Z_{i}\right)-\text{Tr}\left(\rho Z_{j}\right)}+\text{Tr}\left(\rho Z_{i}\otimes Z_{j}\right)\right)-\left(\cancel{1-\text{Tr}\left(\rho Z_{i}\right)-\text{Tr}\left(\rho Z_{j}\right)}+\text{Tr}\left(\rho Z_{i}\right)\text{Tr}\left(\rho Z_{j}\right)\right)\right|\\
+ & = & \frac{1}{4}\left|\text{Tr}\left(\rho Z_{i}\otimes Z_{j}\right)-\text{Tr}\left(\rho Z_{i}\right)\text{Tr}\left(\rho Z_{j}\right)\right|
 \end{eqnarray*}
-
-\end_inset
-
-
-\begin_inset Formula 
-\[
-\Downarrow
-\]
 
 \end_inset
 
@@ -141,40 +160,8 @@ So if we measure
 \end_layout
 
 \begin_layout Standard
-\begin_inset Formula 
-\begin{eqnarray*}
-\left\langle \hat{n}_{i}\hat{n}_{j}\right\rangle _{\rho} & = & \frac{1}{4}\left(1-\text{Tr}\left(\rho Z_{i}\right)-\text{Tr}\left(\rho Z_{j}\right)+\text{Tr}\left(\rho Z_{i}\otimes Z_{j}\right)\right)\\
- & = & \frac{1}{4}\left(1-\left(2p_{\text{Meas. 0}}^{\left(i\right)}-1\right)-\left(2p_{\text{Meas. 0}}^{\left(j\right)}-1\right)+\left(1-2p_{\text{Meas. 01}}^{\left(i,j\right)}-2p_{\text{Meas. 10}}^{\left(i,j\right)}\right)\right)\\
- & = & \frac{1}{4}\left(1+\left(1-2p_{\text{Meas. 0}}^{\left(i\right)}\right)+\left(1-2p_{\text{Meas. 0}}^{\left(j\right)}\right)+\left(1-2p_{\text{Meas. 01}}^{\left(i,j\right)}-2p_{\text{Meas. 10}}^{\left(i,j\right)}\right)\right)\\
- & = & \frac{1}{4}\left(4-2p_{\text{Meas. 0}}^{\left(i\right)}-2p_{\text{Meas. 0}}^{\left(j\right)}-2p_{\text{Meas. 01}}^{\left(i,j\right)}-2p_{\text{Meas. 10}}^{\left(i,j\right)}\right)\\
- & = & \frac{1}{4}\left(4-2\left(p_{\text{Meas. 00}}^{\left(i,j\right)}+p_{\text{Meas. 01}}^{\left(i,j\right)}\right)-2\left(p_{\text{Meas. 00}}^{\left(i,j\right)}+p_{\text{Meas. 10}}^{\left(i,j\right)}\right)-2p_{\text{Meas. 01}}^{\left(i,j\right)}-2p_{\text{Meas. 10}}^{\left(i,j\right)}\right)\\
- & = & \frac{1}{4}\left(4-2p_{\text{Meas. 00}}^{\left(i,j\right)}-2p_{\text{Meas. 01}}^{\left(i,j\right)}-2p_{\text{Meas. 00}}^{\left(i,j\right)}-2p_{\text{Meas. 10}}^{\left(i,j\right)}-2p_{\text{Meas. 01}}^{\left(i,j\right)}-2p_{\text{Meas. 10}}^{\left(i,j\right)}\right)\\
- & = & \frac{1}{4}\left(4-4p_{\text{Meas. 00}}^{\left(i,j\right)}-4p_{\text{Meas. 01}}^{\left(i,j\right)}-4p_{\text{Meas. 10}}^{\left(i,j\right)}\right)\\
- & = & 1-p_{\text{Meas. 00}}^{\left(i,j\right)}-p_{\text{Meas. 01}}^{\left(i,j\right)}-p_{\text{Meas. 10}}^{\left(i,j\right)}\\
- & = & 1-\left(p_{\text{Meas. 00}}^{\left(i,j\right)}+p_{\text{Meas. 01}}^{\left(i,j\right)}+p_{\text{Meas. 10}}^{\left(i,j\right)}\right)\\
- & = & 1-\left(1-p_{\text{Meas. 11}}^{\left(i,j\right)}\right)\\
- & = & p_{\text{Meas. 11}}^{\left(i,j\right)}
-\end{eqnarray*}
-
-\end_inset
-
-
-\begin_inset Formula 
-\[
-\Downarrow
-\]
-
-\end_inset
-
-
-\begin_inset Formula 
-\[
-\boxed{\left\langle \hat{n}_{i}\hat{n}_{j}\right\rangle _{\rho}=p_{\text{Meas. 11}}^{\left(i,j\right)};\ \text{Measured on the relevant state \ensuremath{\rho}}}
-\]
-
-\end_inset
-
-
+================================================================================
+===
 \end_layout
 
 \end_body
