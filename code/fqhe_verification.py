@@ -5,24 +5,57 @@ from tqdm import tqdm
 from fqhe import phi
 
 
-def measure_string_ij(n_block, i, j):
-    def ret():
-        return None
+def measure_string_ij(i, j):
+    """
+    Based on calculation in "calculating_string_operators.lyx"
+    Parameters
+    ----------
+    i
+    j
 
-    return None
+    Returns
+    -------
+
+    """
+    def ret():
+        str_ij = qml.PauliZ(wires=3 * i + 6) @ qml.PauliZ(wires=3 * i + 4)
+        for k in range(i+1, j-1):
+            str_ij =str_ij @ qml.PauliZ(wires=3 * k + 6) @ qml.PauliZ(wires=3 * k + 4)
+
+        o1 = [qml.PauliZ(wires=3 * i + 3) @ str_ij @ qml.PauliZ(wires=3 * j + 3), qml.PauliZ(
+            wires=3 * i + 3) @ str_ij, str_ij @ qml.PauliZ(wires=3 * j + 3), str_ij]
+
+        o2 = [-1 * qml.PauliZ(wires=3 * i + 3) @ str_ij @ qml.PauliZ(wires=3 * j + 1), -1 * qml.PauliZ(
+            wires=3 * i + 3) @ str_ij, -1 * str_ij @ qml.PauliZ(wires=3 * j + 1), -1 * str_ij]
+
+        o3 = [-1 * qml.PauliZ(wires=3 * i + 1) @ str_ij @ qml.PauliZ(wires=3 * j + 3), -1 * qml.PauliZ(
+            wires=3 * i + 1) @ str_ij, -1 * str_ij @ qml.PauliZ(wires=3 * j + 3), -1 * str_ij]
+
+        o4 = [qml.PauliZ(wires=3 * i + 1) @ str_ij @ qml.PauliZ(wires=3 * j + 1), qml.PauliZ(
+            wires=3 * i + 1) @ str_ij, str_ij @ qml.PauliZ(wires=3 * j + 1), str_ij]
+
+        obs = []
+        for o in [o1, o2, o3, o4]:
+            obs.extend(o)
+        return [qml.expval(o) for o in obs]
+
+    return ret
 
 
 def verify_string_data(n_blocks, fqhe_circuit):
-    n_t = 13
-    tvals = np.round(np.linspace(0, 1.2, n_t), 3)
+    ivals = [1, 2, 3, 4, 5]
+    t = 1
+    phi_i = phi(t, n_blocks)
 
-    t_output = []
+    jrange = len(range(1, 3 * n_blocks))
+    str_output = np.zeros((len(ivals), jrange))
+    for idx, i in tqdm(enumerate(ivals)):
+        string_ij = [fqhe_circuit(n_blocks, measure_string_ij(i, j), phi_i) for j in
+                     range(i + 1, 3 * n_blocks)]
+        string_ij = [string_ij[0:4], string_ij[4:8], string_ij[8:12], string_ij[12:16]]
+        str_output[idx, len(range(1, 3 * n_blocks)) - len(string_ij):] = [s[0] - s[1] - s[2] + s[3] for s in string_ij]
 
-    for t in tvals:
-        n0i = fqhe_circuit(n_blocks, measure_string_ij, phi(t, n_blocks))
-        t_output.append(n0i)
-
-    return tvals, t_output
+    return ivals, str_output
 
 
 def verify_string(n_blocks, fqhe_circuit, n_shots):
@@ -37,7 +70,7 @@ def verify_string(n_blocks, fqhe_circuit, n_shots):
     -------
 
     """
-    tvals, t_output = verify_string_data(n_blocks, fqhe_circuit, n_shots)
+    tvals, t_output = verify_string_data(n_blocks, fqhe_circuit)
 
     fig, ax = plt.subplots()
     im = ax.imshow(t_output)
