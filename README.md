@@ -10,9 +10,9 @@ One challenging issue we need to face in order to complete our plan is the mitig
 
 #### Presentation:
 1) Creating and Manipulating a Laughlin-Type ν = 1/3 Fractional Quantum Hall State on a Quantum Computer with Linear Depth Circuit: 
-https://doi.org/10.1103/PRXQuantum.1.020309
+    ###### https://doi.org/10.1103/PRXQuantum.1.020309
 2) Parallel quantum simulation of large systems on small NISQ computers: 
-https://doi.org/10.1038/s41534-021-00420-3
+    ######https://doi.org/10.1038/s41534-021-00420-3
 
 #### Source code: https://github.com/ShapeshiftingMasterOfDarkness/QHack2022-FQHE
 
