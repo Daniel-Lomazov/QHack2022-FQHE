@@ -112,7 +112,7 @@ def verify_ni(n_blocks, fqhe_circuit, n_shots):
     measure = measure_ni(n_blocks, typename=typename)
     n = [np.array(fqhe_circuit(n_blocks, measure, phi(t, n_blocks))) for t in tqdm(tvals)]
     if "Aws" in typename:
-        n = [2*o - 1 for o in n]
+        n = [2 * o - 1 for o in n]
 
     fig, ax = plt.subplots()
     im = ax.imshow(n)
@@ -134,13 +134,12 @@ def verify_ni(n_blocks, fqhe_circuit, n_shots):
 
 
 def measure_ni(n_blocks, typename=""):
-
     def ret():
         if "Aws" in typename:
             obs = [qml.PauliZ(i) for i in range(3 * n_blocks + 2)]
         else:
             obs = [qml.Hermitian(0.5 * (qml.Identity(i).matrix + qml.PauliZ(i).matrix), wires=i) for i in
-               range(3 * n_blocks + 2)]
+                   range(3 * n_blocks + 2)]
         return [qml.expval(o) for o in obs]
 
     return ret
@@ -213,14 +212,14 @@ def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
     for i in range(n_blocks + 1):
         qml.PauliX(3 * i)
 
-    qml.Barrier(range(3*n_blocks + 2))
+    qml.Barrier(range(3 * n_blocks + 2))
 
     # Stage 1
     qml.RY(-2 * phi_i[0], wires=[1])
     for i in range(n_blocks - 1):
         qml.CRY(-2 * phi_i[i + 1], wires=[3 * i + 1, 3 * (i + 1) + 1])
 
-    qml.Barrier(range(3*n_blocks + 2))
+    qml.Barrier(range(3 * n_blocks + 2))
 
     # Stage 2 - part 1
     for i in range(n_blocks):
@@ -236,7 +235,7 @@ def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
         qml.RZ(np.pi, wires=3 * i + 2)
         qml.CNOT(wires=[3 * i + 1, 3 * i])
 
-    qml.Barrier(range(3*n_blocks + 2))
+    qml.Barrier(range(3 * n_blocks + 2))
     return obs()
     # return qml.expval(qml.PauliZ(0))
 
@@ -253,10 +252,15 @@ def braket_device(n_wires, n_shots, name):
 
     sv1 = "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
     aspn11 = "arn:aws:braket:::device/qpu/rigetti/Aspen-11"
+    aspenm1 = "arn:aws:braket:us-west-1::device/qpu/rigetti/Aspen-M-1"
 
-    dev_arn = {"sv1": sv1, 'aspen11': aspn11}
+    dev_arn = {"sv1": sv1, 'aspen11': aspn11, "aspenm1": aspenm1}
 
-    dev_remote = qml.device('braket.aws.qubit', device_arn=dev_arn[name], wires=n_wires, shots=n_shots)
+    try:
+        dev_remote = qml.device('braket.aws.qubit', device_arn=dev_arn[name], wires=n_wires, shots=n_shots)
+    except KeyError or IndexError:
+        dev_remote = qml.device('braket.aws.qubit', device_arn=sv1, wires=n_wires, shots=n_shots)
+
     print(dev_remote._device.name)
     return dev_remote
 
@@ -320,14 +324,9 @@ def cross_entropy_analysis(max_blocks, t_range):
 
 
 if __name__ == '__main__':
-    # cross_entropy_analysis(max_blocks=5, t_range=np.linspace(0, 1.2, 10)[1:])
-
-    n_blocks = 7
-    t = 0.5
-
     """
     Example: 
-        In command line write "python fqhe.py -blocks 4 --shots 5
+        In command line write "python fqhe.py --blocks 4 --shots 5
     """
     dev_name, n_blocks, n_shots, name = get_circuit()
     n_wires = 3 * n_blocks + 2
@@ -347,4 +346,4 @@ if __name__ == '__main__':
     # plt.show()
 
     verify_ni(n_blocks, fqhe, n_shots=n_shots)
-    # # verify_nij(n_blocks, fqhe, n_shots)
+    # verify_nij(n_blocks, fqhe, n_shots)
