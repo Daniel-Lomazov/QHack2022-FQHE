@@ -8,8 +8,6 @@ from tqdm import tqdm
 plt.rcParams['text.usetex'] = True
 
 
-
-
 def red_ij(red_wires):
     """
     Example for using red_ij on first block:
@@ -92,7 +90,6 @@ def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
     for i in range(n_blocks):
         qml.RZ(np.pi, wires=3 * i + 2)
         qml.CNOT(wires=[3 * i + 1, 3 * i])
-        qml.RZ(np.pi, wires=(3 * i + 2))
 
     qml.Barrier(wires=range(3 * (n_blocks + 1)))
 
