@@ -19,6 +19,8 @@ def measure_string_ij(i, j):
     """
     def ret():
         str_ij = qml.PauliZ(wires=3 * i + 6) @ qml.PauliZ(wires=3 * i + 4)
+        for k in range(i+1, j-1):
+            str_ij =str_ij @ qml.PauliZ(wires=3 * k + 6) @ qml.PauliZ(wires=3 * k + 4)
 
         o1 = [qml.PauliZ(wires=3 * i + 3) @ str_ij @ qml.PauliZ(wires=3 * j + 3), qml.PauliZ(
             wires=3 * i + 3) @ str_ij, str_ij @ qml.PauliZ(wires=3 * j + 3), str_ij]
