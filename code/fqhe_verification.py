@@ -2,65 +2,27 @@ import pennylane as qml
 from pennylane import numpy as np
 from matplotlib import pyplot as plt
 from tqdm import tqdm
-from fqhe import phi
+from time import strftime
+from fqhe_prep import phi
 
 
-def measure_string_ij(i, j):
+def verify_ni_data(n_blocks, fqhe_circuit, t_bottom=0, t_top=1.2, n_t=11):
+    tvals = np.round(np.linspace(t_top, t_bottom, n_t), 3)
+    measure = measure_zi(n_blocks)
+
+    samples_for_diff_t_vals = [fqhe_circuit(n_blocks, measure, phi(t, n_blocks)) for t in tqdm(tvals)]
+
+    z_exp_vals_for_diff_t_vals = [np.average(sample, axis=1) for sample in
+                                  samples_for_diff_t_vals]
+
+    n1_exp_vals_for_diff_t_vals = (1 - np.array(z_exp_vals_for_diff_t_vals)) / 2
+
+    return tvals, n1_exp_vals_for_diff_t_vals
+
+
+def verify_ni(n_blocks, fqhe_circuit, n_shots):
     """
-    Based on calculation in "calculating_string_operators.lyx"
-    Parameters
-    ----------
-    i
-    j
-
-    Returns
-    -------
-
-    """
-    def ret():
-        str_ij = qml.PauliZ(wires=3 * i + 6) @ qml.PauliZ(wires=3 * i + 4)
-        for k in range(i+1, j-1):
-            str_ij =str_ij @ qml.PauliZ(wires=3 * k + 6) @ qml.PauliZ(wires=3 * k + 4)
-
-        o1 = [qml.PauliZ(wires=3 * i + 3) @ str_ij @ qml.PauliZ(wires=3 * j + 3), qml.PauliZ(
-            wires=3 * i + 3) @ str_ij, str_ij @ qml.PauliZ(wires=3 * j + 3), str_ij]
-
-        o2 = [-1 * qml.PauliZ(wires=3 * i + 3) @ str_ij @ qml.PauliZ(wires=3 * j + 1), -1 * qml.PauliZ(
-            wires=3 * i + 3) @ str_ij, -1 * str_ij @ qml.PauliZ(wires=3 * j + 1), -1 * str_ij]
-
-        o3 = [-1 * qml.PauliZ(wires=3 * i + 1) @ str_ij @ qml.PauliZ(wires=3 * j + 3), -1 * qml.PauliZ(
-            wires=3 * i + 1) @ str_ij, -1 * str_ij @ qml.PauliZ(wires=3 * j + 3), -1 * str_ij]
-
-        o4 = [qml.PauliZ(wires=3 * i + 1) @ str_ij @ qml.PauliZ(wires=3 * j + 1), qml.PauliZ(
-            wires=3 * i + 1) @ str_ij, str_ij @ qml.PauliZ(wires=3 * j + 1), str_ij]
-
-        obs = []
-        for o in [o1, o2, o3, o4]:
-            obs.extend(o)
-        return [qml.expval(o) for o in obs]
-
-    return ret
-
-
-def verify_string_data(n_blocks, fqhe_circuit):
-    ivals = [1, 2, 3, 4, 5]
-    t = 1
-    phi_i = phi(t, n_blocks)
-
-    jrange = len(range(1, 3 * n_blocks))
-    str_output = np.zeros((len(ivals), jrange))
-    for idx, i in tqdm(enumerate(ivals)):
-        string_ij = [fqhe_circuit(n_blocks, measure_string_ij(i, j), phi_i) for j in
-                     range(i + 1, 3 * n_blocks)]
-        string_ij = [string_ij[0:4], string_ij[4:8], string_ij[8:12], string_ij[12:16]]
-        str_output[idx, len(range(1, 3 * n_blocks)) - len(string_ij):] = [s[0] - s[1] - s[2] + s[3] for s in string_ij]
-
-    return ivals, str_output
-
-
-def verify_string(n_blocks, fqhe_circuit, n_shots):
-    """
-    Verifies eq. 16 from Rahmani et al.
+    Verifies eq. 15 from Rahmani et al.
 
     Parameters
     ----------
@@ -70,26 +32,33 @@ def verify_string(n_blocks, fqhe_circuit, n_shots):
     -------
 
     """
-    tvals, t_output = verify_string_data(n_blocks, fqhe_circuit)
+    tvals, n1_exp_vals_for_diff_t_vals = verify_ni_data(n_blocks, fqhe_circuit)
 
     fig, ax = plt.subplots()
-    im = ax.imshow(t_output)
+    im = ax.imshow(n1_exp_vals_for_diff_t_vals)
     plt.grid(visible=True)
 
     # Show all ticks and label them with the respective list entries
     ax.set_yticks(np.arange(len(tvals)), labels=tvals)
     ax.set_ylabel("t", rotation=0)
-
-    ax.set_xticks(np.arange(3 * n_blocks - 1))
-    ax.set_xlabel(r'$i - j$')
-    ax.set_title(r'$O^{ij}_str\; \textit{string operator order parameter,\#shots= \;' +
-                 str(n_shots) + r', \#N= ' + str(3 * n_blocks) + r'}$')
+    ax.set_xticks(np.arange(3 * (n_blocks + 1)), labels=range(3 * (n_blocks + 1)))
+    ax.set_xlabel(r'$\textit{\large{k}}$')
+    ax.set_title('N = {}; shots = {} on {}'.format(3 * (n_blocks + 1), n_shots, fqhe_circuit.device.short_name))
 
     cbar = ax.figure.colorbar(im, ax=ax)
-    cbar.ax.set_ylabel(r'$O^{ij}_str$', rotation=90, va="top")
+    cbar.ax.set_ylabel(r'$\left\langle n_k \right\rangle$', rotation=0, va="bottom")
+    plt.savefig("1pt//" + fqhe_circuit.device.short_name + "_" + str(n_blocks) +
+                "blocks_" + str(n_shots) + "shots_" + strftime("%d%m_%H_%M") + ".png", format="png")
     plt.show()
 
     return
+
+
+def measure_zi(n_blocks, measurement=qml.sample):
+    def ret():
+        return [measurement(qml.PauliZ(wires=i)) for i in range(3 * (n_blocks + 1))]
+
+    return ret
 
 
 def measure_nij(n_blocks, i=0):
@@ -114,6 +83,19 @@ def measure_nij(n_blocks, i=0):
     #        range(1, 3 * n_blocks)]
     #
     # return obs
+
+
+def measure_nij_2(n_blocks, i=2):
+    def ret():
+        to_return = []
+        for j in range(3 * (n_blocks + 1)):
+            if i < j:
+                to_return.append(qml.sample(qml.PauliZ(wires=i) @ qml.PauliZ(wires=j)))
+            else:
+                pass
+        return to_return
+
+    return ret
 
 
 def verify_nij_data(n_blocks, fqhe_circuit):
@@ -176,58 +158,7 @@ def verify_nij(n_blocks, fqhe_circuit, n_shots):
     return
 
 
-def verify_ni(n_blocks, fqhe_circuit, n_shots):
-    """
-    Verifies eq. 15 from Rahmani et al.
-
-    Parameters
-    ----------
-    n_blocks
-
-    Returns
-    -------
-
-    """
-
-    n_t = 11
-    tvals = np.round(np.linspace(0, 1.2, n_t), 3)
-    typename = type(fqhe_circuit.device).__dict__['name']
-    measure = measure_ni_2(n_blocks)
-    samples_for_diff_t_vals = [np.array(fqhe_circuit(n_blocks, measure, phi(t, n_blocks))) for t in tqdm(tvals)]
-    tvals = np.flip(tvals)
-
-    z_exp_vals_for_diff_t_vals = []
-    for sample in samples_for_diff_t_vals:
-        z_i_vals = []
-        for obs_idx in range(sample.shape[0]):
-            z_i_data = sample[obs_idx]
-            z_i = sum(z_i_data) / len(z_i_data)
-            z_i_vals.append(z_i)
-        z_exp_vals_for_diff_t_vals.append(np.array(z_i_vals))
-
-    n1_exp_vals_for_diff_t_vals = [((1 - o) / 2) for o in z_exp_vals_for_diff_t_vals]
-    n1_exp_vals_for_diff_t_vals = np.flip(np.stack(n1_exp_vals_for_diff_t_vals), axis=0)
-
-    fig, ax = plt.subplots()
-    im = ax.imshow(n1_exp_vals_for_diff_t_vals)
-    plt.grid(visible=True)
-
-    # Show all ticks and label them with the respective list entries
-    ax.set_yticks(np.arange(n_t), labels=tvals)
-
-    ax.set_xticks(np.arange(3 * (n_blocks + 1)), labels=range(3 * (n_blocks + 1)))
-    ax.set_xlabel(r'$\textit{\large{k}}$')
-    ax.set_ylabel("t", rotation=0)
-    ax.set_title('N = {}; shots = {}'.format(3 * (n_blocks + 1), n_shots))
-
-    cbar = ax.figure.colorbar(im, ax=ax)
-    cbar.ax.set_ylabel(r'$\left\langle n_k \right\rangle$', rotation=90, va="bottom")
-    plt.show()
-
-    return
-
-
-def verify_nij_2(n_blocks, fqhe_circuit, n_shots, comulant_form: bool=True):
+def verify_nij_2(n_blocks, fqhe_circuit, n_shots, comulant_form: bool = True):
     """
     Verifies eq. 15 from Rahmani et al.
 
@@ -321,31 +252,90 @@ def verify_nij_2(n_blocks, fqhe_circuit, n_shots, comulant_form: bool=True):
 
     return
 
-# def measure_ni(n_blocks, typename=""):
-#     def ret():
-#         if "Aws" in typename:
-#             obs = [qml.PauliZ(wires=i) for i in range(3 * (n_blocks + 1))]
-#         else:
-#             obs = [qml.Hermitian(0.5 * (qml.Identity(wires=i).matrix - qml.PauliZ(wires=i).matrix), wires=i) for i in
-#                    range(3 * (n_blocks + 1))]
-#         return [qml.expval(o) for o in obs]
-#
-#     return ret
 
+def measure_string_ij(i, j):
+    """
+    Based on calculation in "calculating_string_operators.lyx"
+    Parameters
+    ----------
+    i
+    j
 
-def measure_ni_2(n_blocks):
+    Returns
+    -------
+
+    """
+
     def ret():
-        return [qml.sample(qml.PauliZ(wires=i)) for i in range(3 * (n_blocks + 1))]
+        str_ij = qml.PauliZ(wires=3 * i + 6) @ qml.PauliZ(wires=3 * i + 4)
+        for k in range(i + 1, j - 1):
+            str_ij = str_ij @ qml.PauliZ(wires=3 * k + 6) @ qml.PauliZ(wires=3 * k + 4)
+
+        o1 = [qml.PauliZ(wires=3 * i + 3) @ str_ij @ qml.PauliZ(wires=3 * j + 3), qml.PauliZ(
+            wires=3 * i + 3) @ str_ij, str_ij @ qml.PauliZ(wires=3 * j + 3), str_ij]
+
+        o2 = [-1 * qml.PauliZ(wires=3 * i + 3) @ str_ij @ qml.PauliZ(wires=3 * j + 1), -1 * qml.PauliZ(
+            wires=3 * i + 3) @ str_ij, -1 * str_ij @ qml.PauliZ(wires=3 * j + 1), -1 * str_ij]
+
+        o3 = [-1 * qml.PauliZ(wires=3 * i + 1) @ str_ij @ qml.PauliZ(wires=3 * j + 3), -1 * qml.PauliZ(
+            wires=3 * i + 1) @ str_ij, -1 * str_ij @ qml.PauliZ(wires=3 * j + 3), -1 * str_ij]
+
+        o4 = [qml.PauliZ(wires=3 * i + 1) @ str_ij @ qml.PauliZ(wires=3 * j + 1), qml.PauliZ(
+            wires=3 * i + 1) @ str_ij, str_ij @ qml.PauliZ(wires=3 * j + 1), str_ij]
+
+        obs = []
+        for o in [o1, o2, o3, o4]:
+            obs.extend(o)
+        return [qml.expval(o) for o in obs]
+
     return ret
 
 
-def measure_nij_2(n_blocks, i=2):
-    def ret():
-        to_return = []
-        for j in range(3 * (n_blocks + 1)):
-            if i < j:
-                to_return.append(qml.sample(qml.PauliZ(wires=i) @ qml.PauliZ(wires=j)))
-            else:
-                pass
-        return to_return
-    return ret
+def verify_string_data(n_blocks, fqhe_circuit):
+    ivals = [1, 2, 3, 4, 5]
+    t = 1
+    phi_i = phi(t, n_blocks)
+
+    jrange = len(range(1, 3 * n_blocks))
+    str_output = np.zeros((len(ivals), jrange))
+    for idx, i in tqdm(enumerate(ivals)):
+        string_ij = [fqhe_circuit(n_blocks, measure_string_ij(i, j), phi_i) for j in
+                     range(i + 1, 3 * n_blocks)]
+        string_ij = [string_ij[0:4], string_ij[4:8], string_ij[8:12], string_ij[12:16]]
+        str_output[idx, len(range(1, 3 * n_blocks)) - len(string_ij):] = [s[0] - s[1] - s[2] + s[3] for s in string_ij]
+
+    return ivals, str_output
+
+
+def verify_string(n_blocks, fqhe_circuit, n_shots):
+    """
+    Verifies eq. 16 from Rahmani et al.
+
+    Parameters
+    ----------
+    n_blocks
+
+    Returns
+    -------
+
+    """
+    tvals, t_output = verify_string_data(n_blocks, fqhe_circuit)
+
+    fig, ax = plt.subplots()
+    im = ax.imshow(t_output)
+    plt.grid(visible=True)
+
+    # Show all ticks and label them with the respective list entries
+    ax.set_yticks(np.arange(len(tvals)), labels=tvals)
+    ax.set_ylabel("t", rotation=0)
+
+    ax.set_xticks(np.arange(3 * n_blocks - 1))
+    ax.set_xlabel(r'$i - j$')
+    ax.set_title(r'$O^{ij}_str\; \textit{string operator order parameter,\#shots= \;' +
+                 str(n_shots) + r', \#N= ' + str(3 * n_blocks) + r'}$')
+
+    cbar = ax.figure.colorbar(im, ax=ax)
+    cbar.ax.set_ylabel(r'$O^{ij}_str$', rotation=90, va="top")
+    plt.show()
+
+    return
