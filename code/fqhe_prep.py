@@ -2,9 +2,9 @@ import pennylane as qml
 from pennylane import numpy as np
 import argparse
 from time import strftime
+from typing import List
 
-
-def phi(t: float, n_blocks: int) -> list[float]:
+def phi(t: float, n_blocks: int) -> List[float]:
     """
     This function computes the phases for the terms in the v=1/3 FQHE quantum state.
 
@@ -24,7 +24,7 @@ def phi(t: float, n_blocks: int) -> list[float]:
     return phi_i
 
 
-def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
+def fqhe_circuit(n_blocks, obs, phi_i: List[float]) -> List[float]:
     """
 
     Parameters
@@ -56,24 +56,32 @@ def fqhe_circuit(n_blocks, obs, phi_i: list[float]) -> list[float]:
     # Stage 2 - part 1
     for i in range(n_blocks):
         qml.CNOT(wires=[3 * i + 1, 3 * i + 2])
+        
+    qml.Barrier(wires=range(3 * (n_blocks + 1)))
 
     # Stage 2 - part 2
     for i in range(n_blocks):
         qml.RZ(np.pi, wires=(3 * i + 1))
         qml.CNOT(wires=[3 * i + 2, 3 * i + 3])
+        
+    qml.Barrier(wires=range(3 * (n_blocks + 1)))
 
     # Stage 2 - part 3
     for i in range(n_blocks):
         qml.CNOT(wires=[3 * i + 1, 3 * i])
+        qml.RZ(np.pi, wires=(3 * i + 2))
 
     qml.Barrier(wires=range(3 * (n_blocks + 1)))
 
     return obs()
-    # return qml.expval(qml.PauliZ(0))
 
 
 def local_device(n_wires, n_shots, name=""):
     dev = qml.device("default.qubit", wires=n_wires, shots=n_shots)
+    return dev
+
+def cirq_device(n_wires, n_shots, name=""):
+    dev = qml.device('cirq.simulator', wires=n_wires, shots=n_shots)
     return dev
 
 
@@ -96,14 +104,9 @@ def braket_device(n_wires, n_shots, name):
     return dev_remote
 
 
-def get_circuit():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=str, default="local")
-    parser.add_argument('--name', type=str, default="local")
-    parser.add_argument('--blocks', type=int, default=7)
-    parser.add_argument('--shots', type=int, default=1000)
-    args = parser.parse_args()
-    dev_dict = {"local": local_device, "aws": braket_device}
+def get_circuit(args):
+
+    dev_dict = {"local": local_device, "aws": braket_device, "cirq" : cirq_device}
 
     n_blocks = args.blocks
     n_shots = args.shots
@@ -114,4 +117,21 @@ def get_circuit():
     print("Running FQHE v=1/3 simulation with device-{} on {} blocks for {} shots".format(dev_type + "-" + dev_name,
                                                                                           n_blocks, n_shots))
     print(dev.name)
-    return dev, n_blocks, n_shots
+    fqhe = qml.QNode(fqhe_circuit, dev)
+    return fqhe, n_blocks, n_shots
+
+def get_argparse():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--device', type=str, default="local")
+    parser.add_argument('--name', type=str, default="local")
+    parser.add_argument('--blocks', type=int, default=7)
+    parser.add_argument('--shots', type=int, default=1000)
+    parser.add_argument('--obs', nargs='+', type=str)
+    args = parser.parse_args()
+    
+    return args
+
+# 011,000,100,100
+# 011,111,000,100
+# 011,111,111,000
+# 100,100,100,100
